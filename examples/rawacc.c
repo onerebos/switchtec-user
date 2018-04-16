@@ -39,6 +39,11 @@
 #include <stdint.h>
 #include <stdio.h>
 
+typedef unsigned long   UINT32;
+typedef unsigned short  UINT16;
+typedef unsigned char   UINT8;
+
+
 static int echo_cmd(struct switchtec_dev *dev)
 {
 	int ret;
@@ -101,19 +106,124 @@ static int die_temp(struct switchtec_dev *dev)
 	return 0;
 }
 
+/** */
+typedef struct sfm_raw_req_cmd_t {
+    /** */
+    UINT8 sub_cmd;
+
+    UINT8 rsvd;
+
+    /** Command Target PDFID */
+    UINT16 func_pdfid;
+
+} sfm_raw_req_cmd_struct;
+
+/** Configuration Request Command Format */
+typedef struct sfm_raw_cfg_req_cmd_t {
+    /** Basic Request Command */
+    struct sfm_raw_req_cmd_t;
+
+    /** Configuration Space Offset */
+    UINT16 csr_offset;
+    /** Byte Count */
+    UINT8 byte_count;
+    /** cfg_rsvd_0 */
+    UINT8 cfg_rsvd_0;
+
+    /** Configuration Request Data */
+    UINT32 cfg_wr_data;
+
+} sfm_raw_cfg_req_cmd_struct;
+
+/** Configuration Response Format */
+typedef struct sfm_raw_cfg_rsp_t {
+    /** Completion Status */
+    UINT8 cpl_stat;
+    /** Reserved Areas */
+    UINT8 rsvd0;
+    UINT8 rsvd1;
+    UINT8 rsvd2;
+
+    /** Cfg Read Data */
+    UINT32 cfg_rd_data;
+} sfm_raw_cfg_rsp_struct;
+
+
+static int cfg_req( struct switchtec_dev *dev, BOOL is_read, UINT16 pdfid, UINT16 csr_off, UINT8 byte_count, UINT32 wr_data )
+{
+    int ret = 0;
+    sfm_raw_cfg_req_cmd_struct * cfg_req = malloc( sizeof( sfm_raw_cfg_req_cmd_struct ) );
+
+    if( NULL == cfg_req )
+    {
+        exit(1);
+    }
+
+    cfg_req->csr_offset = csr_off;
+    cfg_req->byte_count = byte_count;
+    cfg_req->func_pdfid = pdfid;
+
+    if( true == is_read )
+    {
+        cfg_req->sub_cmd = 0;
+    }
+    else
+    {
+        cfg_req->sub_cmd = 1;
+        cfg_req->cfg_wr_data = wr_data;
+    }
+
+    /* Output Buffer */
+    sfm_raw_cfg_rsp_struct outdata;
+
+	ret = switchtec_cmd(dev, MRPC_RAW_ACC, cfg_req, sizeof(sfm_raw_cfg_req_cmd_struct),
+			    &outdata, sizeof(outdata));
+	if (ret)
+    {
+		switchtec_perror("error cfg request");
+		return 2;
+	}
+    else
+    {
+        if( true == is_read )
+        {
+            printf("Cfg Rd: Data [%x] Stat[%d]\n", outdata.cfg_rd_data, outdata.cpl_stat );
+        }
+        else
+        {
+            printf("Cfg Wr: Stat[%d]\n", outdata.cpl_stat );
+        }
+    }
+
+    return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	struct switchtec_dev *dev;
 	int ret = 0;
 	const char *devpath;
 
-	if (argc > 2) {
-		fprintf(stderr, "USAGE: %s <device>\n", argv[0]);
+    /* Cfg Req Parameters */
+    BOOL is_read;
+    UINT16 pdfid;
+    UINT16 csr_off;
+    UINT8 byte_cnt;
+    UINT32 wr_dat;
+
+	if (argc > 6) {
+		fprintf(stderr, "USAGE: %s <pdfid> <0/1 Rd/Wr> <CSR_OFF> <BYTE_CNT> <WR_DAT>\n", argv[0]);
 		return 1;
 	} else if (argc == 2) {
 		devpath = argv[1];
 	} else {
 		devpath = "/dev/switchtec0";
+        
+        pdfid = atoi( argv[1] );
+        is_read = atoi( argv[2] );
+        csr_off = atoi( argv[3] );
+        byte_cnt = atoi( argv[4] );
+        wr_dat = atoi( argv[5] );
 	}
 
 	dev = switchtec_open(devpath);
@@ -122,14 +232,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-/*
- *     ret = echo_cmd(dev);
- *     if (ret)
- *         goto out;
- * 
- *     ret = die_temp(dev);
- */
-
+    ret = cfg_req( dev, pdfid, is_read, csr_off, byte_cnt, wr_dat );
 
 out:
 	switchtec_close(dev);

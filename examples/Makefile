@@ -27,6 +27,8 @@ CFLAGS=-Wall -Werror -O2 -g
 LDLIBS=-lswitchtec
 
 temp: temp.o
+rawacc: rawacc.o
 
 clean::
 	rm -rf temp temp.o
+	rm -rf rawacc rawacc.o
