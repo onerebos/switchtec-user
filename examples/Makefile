@@ -23,10 +23,11 @@
 ##
 ########################################################################
 
-CFLAGS=-Wall -Werror -O2 -g
+#CFLAGS=-Wall -Werror -O2 -g -std=c11
+CFLAGS=-Wall  -O2 -g -std=c11 -fms-extensions
 LDLIBS=-lswitchtec
 
-temp: temp.o
+#temp: temp.o
 rawacc: rawacc.o
 
 clean::

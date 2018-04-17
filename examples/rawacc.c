@@ -39,10 +39,13 @@
 #include <stdint.h>
 #include <stdio.h>
 
-typedef unsigned long   UINT32;
+typedef unsigned int   UINT32;
 typedef unsigned short  UINT16;
 typedef unsigned char   UINT8;
+typedef unsigned char   BOOL;
 
+#define true 1
+#define false 0
 
 static int echo_cmd(struct switchtec_dev *dev)
 {
@@ -176,10 +179,10 @@ static int cfg_req( struct switchtec_dev *dev, BOOL is_read, UINT16 pdfid, UINT1
     /* Output Buffer */
     sfm_raw_cfg_rsp_struct outdata;
 
-	ret = switchtec_cmd(dev, MRPC_RAW_ACC, cfg_req, sizeof(sfm_raw_cfg_req_cmd_struct),
+	ret = switchtec_cmd(dev, 0x8E, cfg_req, sizeof(sfm_raw_cfg_req_cmd_struct),
 			    &outdata, sizeof(outdata));
 	if (ret)
-    {
+  {
 		switchtec_perror("error cfg request");
 		return 2;
 	}
@@ -211,15 +214,15 @@ int main(int argc, char *argv[])
     UINT8 byte_cnt;
     UINT32 wr_dat;
 
-	if (argc > 6) {
-		fprintf(stderr, "USAGE: %s <pdfid> <0/1 Rd/Wr> <CSR_OFF> <BYTE_CNT> <WR_DAT>\n", argv[0]);
+	if (argc < 6) {
+		fprintf(stderr, "USAGE: %s <pdfid> <1/0 Rd/Wr> <CSR_OFF> <BYTE_CNT> <WR_DAT>\n", argv[0]);
 		return 1;
 	} else if (argc == 2) {
 		devpath = argv[1];
 	} else {
 		devpath = "/dev/switchtec0";
-        
-        pdfid = atoi( argv[1] );
+
+        sscanf( argv[1],"%x", & pdfid );
         is_read = atoi( argv[2] );
         csr_off = atoi( argv[3] );
         byte_cnt = atoi( argv[4] );
@@ -232,7 +235,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-    ret = cfg_req( dev, pdfid, is_read, csr_off, byte_cnt, wr_dat );
+    ret = cfg_req( dev, is_read, pdfid, csr_off, byte_cnt, wr_dat );
 
 out:
 	switchtec_close(dev);
